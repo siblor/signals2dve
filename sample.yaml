@@ -1,0 +1,139 @@
+# Signal configuration list for DVE
+#
+#
+# - to reference iterators and expresions, use always the capsule ${ }.
+#
+
+env:
+  top: TestDriver.testHarness.chiptop.system.tile_prci_domain.tile_reset_domain.boom_tile
+  core: $top.core
+
+settings:
+  line_limit: 3900
+  allowed_radices: ['decimal' , 'binary', 'hex', 'oct', 'ascii']
+
+defaults:
+  # for radix, dve default is already hex
+  collapse: true
+  divider_name: 'Divider'
+
+  # TODO: order them
+  uop_signals: &uop_signals
+    - path: '_uopc[*]'
+      radix: decimal
+    - path: '_inst[*]'
+    - divider: ''
+    - path: '_debug_inst[*]'
+    - path: '_is_rvc'
+    - path: '_debug_pc[*]'
+      radix: oct
+    - divider: 'name_div'
+    - path: '_iq_type[*]'
+    - path: '_fu_code[*]'
+      radix: binary
+    - path: '_is_br'
+
+
+# Groups
+groups:
+    # General control signals 
+  - name: 'Control'
+    base: $core
+    collapsed: false
+    children:
+      - path: .clock
+      - path: .reset
+      - path: .csr_io_interrupt
+      - path: .csr_io_interrupt_cause[*]
+
+    # Decode stage
+  - name: 'Decode'                      # Name that will show on DVE GUI
+    base: $core                         # Full signal name before the signal name (no trailing . or _)
+    children: []                         # Signals belonging to this group. [] for empty
+    subgroups:                          # Subgroups
+    - name: 'Decode Unit ${w}'
+      base: '.decode_units_${w}'
+      iterators: {w: 2}
+      children:
+        - base: '.io_enq_uop'
+          children: *uop_signals
+          
+
+  #   # Rename stage
+  # - name: 'Rename'
+  #   path: '$core'
+  #   children: []
+  #   subgroups:
+  #   - name: 'Integer Rename'
+  #     path: '.rename_stage'
+  #     children: []
+  #     subgroups:
+  #     - name: 'i ren $i'
+  #       path: ''
+  #       iterators: {i: 2}
+  #       children:
+  #         - path: '.io_ren2_mask_$i'
+  #         - path: '.io_ren_stalls_$i'
+  #         - base: 'io_ren2_uops_$i' 
+  #           children: *uop_signals
+  #   - name: 'FP Rename'
+  #     path: '.fp_rename_stage'
+  #     children: []
+  #     subgroups:
+  #     - name: 'fp ren $i'
+  #       path: ''
+  #       iterators: {i: 2}
+  #       children:
+  #         - path: '.io_ren_stalls_$i'
+  #         - base: 'io_ren2_uops_$i' 
+  #           children: *uop_signals
+                
+  
+  # - name: 'Dispatcher'
+  #   path: '$core'
+  #   children: []
+  #   subgroups:
+  #     - name: 'dis $i'
+  #       path: ''
+  #       iterators: {i: 2, j: 1}          # For some reason there are 3 identical instances or io_dis_uops. Only using 0 ($j)
+  #       children:
+  #         - path: '.dis_valids_$i'
+  #         - path: '.dis_fire_$i'
+  #         - path: '.dis_hazards_$i'
+  #         - path: '.dispatcher.io_dis_uops_$j_$i_ready'
+  #         - path: '.dispatcher.io_dis_uops_$j_$i_valid'
+  #         - base: 'dispatcher.io_dis_uops_$j_$i_bits' 
+  #           children: *uop_signals
+
+  - name: 'ROB'
+    base: '$core.rob'
+    children:
+      - path: '.rob_head_idx[*]'
+        radix: decimal
+      - path: '.rob_pnr_idx[*]'
+        radix: decimal
+      - path: '.rob_tail_idx[*]'
+        radix: decimal
+      - path: 'full'
+      - path: 'empty'
+    subgroups:
+      - name: 'Entries'
+        base: ''
+        subgroups:  
+          - name: 'idx ${idx}'
+            base: ''
+            iterators: 
+              e: 4      # entries of ROB
+              b: 2      # banks of ROB
+            expr: 
+              idx: '(e << 1) + b'                 # entry number since they are alternated between banks
+              bd: ' "1" if b == 1 else "" '       # Bank display (since it is '' if b=0)
+            flag: rob   # custom flag hardcoded in the script to replace b=0 with 
+            children:
+            - path: '.rob_val_${bd}_${e}'
+            - path: '.rob_bsy_${bd}_${e}'
+            - path: '.rob_unsafe_${bd}_${e}'
+            - path: '.rob_exception_${bd}_${e}'
+            - path: '.rob_predicated_${bd}_${e}'
+            - base: '.rob_uop_${bd}_${e}'
+              children: *uop_signals
