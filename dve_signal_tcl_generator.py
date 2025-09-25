@@ -1,11 +1,49 @@
 import re
+import argparse
 import copy
 import itertools
 import yaml
 from collections import defaultdict
 
-###############################
-# YAML parser
+
+#############################################################################
+# Script arguments
+
+def parseArguments():
+    """
+    Parse arguments and pass back to main
+    """
+    parser = argparse.ArgumentParser(
+        description="Generate DVE Tcl scripts with groups and signals based on a "
+    )
+
+    parser.add_argument(
+        "-c", "--config",
+        required=True,
+        help="YAML configuration file"
+    )
+    parser.add_argument(
+        "-s", "--source",
+        required=True,
+        help="TCL file to use as a source to insert the code"
+    )
+    parser.add_argument(
+        "-o", "--output",
+        required=False,
+        help="Name of output .tcl file"
+    )
+
+    args = parser.parse_args()
+
+    # If no output given, derive from source
+    if args.output is None:
+        args.output = f"patched_{args.source}"
+
+    return args
+
+
+#############################################################################
+# YAML parser stuff
 
 def clean_data(d):
     """Recursively remove '_line' and '_file' from dicts/lists."""
@@ -608,6 +646,7 @@ if __name__ == "__main__":
 
     # Read Config values
     Config.loadConfig(raw_cfg)
+    args = parseArguments()
 
     # List of groups directly parsed
     raw_groups = [Group.parse_group(g) for g in cfg.raw_cfg["groups"]]
