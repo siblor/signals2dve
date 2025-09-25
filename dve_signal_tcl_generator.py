@@ -651,10 +651,17 @@ if __name__ == "__main__":
     # Insert strings
     new_lines = []
     for line in lines:
-        new_lines.append(line)
+        # Substitute stuff
+        if "gui_wv_zoom_timerange" in line:
+            new_lines.append(f"# Zooming out\ngui_wv_zoom_outfull -id ${{{Config.wave_name}}}\n")
+        # Leave as it is
+        else:            
+            new_lines.append(line)
+        
+        # Apend stuff
         if line.strip() == "# Global: Signal Groups":
             new_lines.append("\n" + global_signal_groups)
-        if"gui_wv_zoom_timerange -id ${Wave.1}" in line:
+        if "gui_wv_zoom_timerange -id ${Wave.1}" in line:
             new_lines.append(add_groups + collapse_groups + "\n")
 
     # write to new file
