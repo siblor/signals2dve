@@ -78,8 +78,14 @@ class ParserError(Exception):
         return s
     
 
-class LineLoader(yaml.SafeLoader):
-    """Custom loader that keeps track of line numbers. The constructor is added dynamically as recommended by pyYAML."""
+class CustomLoader(yaml.SafeLoader):
+    """
+    Custom loader that:
+     - keeps track of line numbers and file name
+     - flattens dictionaries with the flag '!flatten'
+    
+    The constructor is added dynamically as recommended by pyYAML.
+    """
     pass
 
 def construct_mapping_with_line(loader, node):
@@ -88,7 +94,7 @@ def construct_mapping_with_line(loader, node):
     mapping["_file"] = loader.name  # store filename
     return mapping
 
-LineLoader.add_constructor(
+CustomLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     construct_mapping_with_line
 )
@@ -97,17 +103,16 @@ class Config:
     """
     Load generic values from the .yaml that are not turned into Groups, Signals, Dividers or others
     """
-    # Place holders
+    # Place holders. 
+    # TODO: If managing multiple configs in one run, change this to instance attributes instead of class attributes
     defaults = {}
     settings = {}
     env = {}
     wave_name = ""
 
-    def __init__(self, yaml_file=None):
-        # Open .yaml config file
-        self.raw_cfg = None
-        with open(yaml_file) as f:
-            self.raw_cfg = yaml.load(f, Loader=LineLoader)
+    def __init__(self, raw_cfg):
+        
+        self.raw_cfg = raw_cfg
 
         # Populate settings
         self.env = self.expand_env()
@@ -117,16 +122,26 @@ class Config:
         Group.set_defaults(self.defaults.get("collapse", Group.default_collapse))
 
         self.settings = self.raw_cfg.get("settings", {})
-
-        if "allowed_radices" not in self.settings:
+        
+        self.allowed_radices = self.settings.get("allowed_radices")
+        if not self.allowed_radices:
             raise ParserError("Allowed_radices missing under settings.", self.settings)
-        else:
-            Signal.set_defaults(self.settings["allowed_radices"])
+        Signal.set_defaults(self.allowed_radices)
 
         if "wave_name" not in self.settings:
             raise ParserError("Wave name has to be set under settings (default value used by dve: 'Wave.1').", self.settings)
         else:
             self.wave_name = self.settings["wave_name"]
+
+    @classmethod
+    def from_file(cls, yaml_file=None):
+        """
+        Alternate constructor: load config from a YAML file.
+        """
+        # Open .yaml config file
+        with open(yaml_file) as f:
+            raw_cfg = yaml.load(f, Loader=CustomLoader)
+        return cls(raw_cfg)
 
     def expand_env(self):
         """
@@ -235,7 +250,7 @@ class SignalGroup:
     """
     """
     def __init__(self, base=None, children=None):
-        self.base = base
+        self.base = base or ''
         self.children = children or []
     
     def expand(self, env=None, parent_base=None):
@@ -251,7 +266,7 @@ class SignalGroup:
         for child in self.children:
             if isinstance(child, SignalGroup):
                 # Recursive call (unlikely?)
-                flat.append(child.expand_and_flatten(env, base))
+                flat.append(child.expand(env, base))
             elif isinstance(child, Signal):
                 # Flatten and expand signals
                 flat.append(Signal(path=f"{base}{child.path}", radix=child.radix))
@@ -632,21 +647,16 @@ def print_command_signals(command='', base='', closing='', separator=' ', signal
         s += line + closing
     return s
 
-
-# ---------- usage ----------
-if __name__ == "__main__":
-    
-    # Open yaml file
-    with open("sample.yaml") as f:
-        raw_cfg = yaml.load(f, Loader=LineLoader)
-
-    # Read env placeholders and expand them (e.g. $core) for substitution later
-    # TODO: move to Config class
-    env = expand_env(raw_cfg.get("env", {}))
-
-    # Read Config values
-    Config.loadConfig(raw_cfg)
+#############################################################################
+# Main
+def main():
+    """
+    """
+    # Parse arguments
     args = parseArguments()
+
+    # Load .yaml config file
+    cfg = Config.from_file(args.config)
 
     # List of groups directly parsed
     raw_groups = [Group.parse_group(g) for g in cfg.raw_cfg["groups"]]
@@ -703,7 +713,7 @@ if __name__ == "__main__":
         if "gui_wv_zoom_timerange -id ${Wave.1}" in line:
             new_lines.append(add_groups + collapse_groups + "\n")
 
-    # write to new file
+    # Write to new file
     with open(args.output, "w") as f:
         f.writelines(new_lines)
 
