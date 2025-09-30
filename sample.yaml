@@ -1,8 +1,10 @@
 # Signal configuration list for DVE
 #
 #
-# - to reference iterators and expresions, use always the capsule ${ }.
+# - To reference iterators and expresions, use always the capsule ${ }.
 # - Always check the DVE's console after loading the script. Some signals could be not found
+# 
+# Examples are shown below for a BOOM Medium configuration
 
 env:
   top: TestDriver.testHarness.chiptop.system.tile_prci_domain.tile_reset_domain.boom_tile
@@ -20,8 +22,7 @@ defaults:
   collapse: true
   divider_name: 'Divider'
 
-  # TODO: order them
-  uop_base: &uop_signals  
+  uop_base: &uop_base  
     # Core Operation Fields  
     - path: '_uopc'               # Micro-operation code specifying the operation type  
       radix: decimal  
@@ -33,7 +34,7 @@ defaults:
     - path: '_fu_code'            # Functional unit code specifying execution unit  
       radix: decimal  
   
-  uop_ctrl_flow:
+  uop_ctrl_flow: &uop_ctrl_flow
     # Branch and Control Flow Fields  
     - path: '_is_br'              # True if this is a branch instruction  
     - path: '_is_jalr'            # True if this is a JALR (jump and link register) instruction  
@@ -48,7 +49,7 @@ defaults:
     # Debug and Tracing Fields  
     - path: '_debug_fsrc'         # Source tracking for branch prediction  
   
-  uop_regs:
+  uop_regs: &uop_regs
     # Logical Register Fields  
     - path: '_ldst'               # Logical destination register specifier  
       radix: decimal  
@@ -75,18 +76,17 @@ defaults:
     - path: '_prs2_busy'          # True if physical source register 2 is busy/not ready  
     - path: '_stale_pdst'         # Previous physical destination register for freelist management  
   
-  uop_xcp:
+  uop_xcp: &uop_xcp
     # Exception and Control Fields  
     - path: '_exception'          # True if this instruction has an exception  
     - path: '_exc_cause'          # Exception cause code  
     - path: '_bypassable'         # True if ALU results can be bypassed (fixed latency operations)
-    # Exception Fields  
     - path: '_xcpt_pf_if'         # True if instruction fetch page fault exception occurred  
     - path: '_xcpt_ae_if'         # True if instruction fetch access exception occurred  
     - path: '_bp_debug_if'        # True if breakpoint debug exception during instruction fetch  
     - path: '_bp_xcpt_if'         # True if breakpoint exception during instruction fetch  
   
-  uop_mem:
+  uop_mem: &uop_mem
     # Memory Operation Fields  
     - path: '_mem_cmd'            # Memory command type for loads/stores  
     - path: '_mem_size'           # Memory operation size  
@@ -101,100 +101,51 @@ defaults:
     - path: '_flush_on_commit'    # True if instruction needs to flush pipeline behind it on commit  
   
 
-  uop_fp: 
+  uop_fp: &uop_fp
     # Floating-Point Fields  
     - path: '_fp_val'             # True if this is a floating-point instruction  
     - path: '_fp_single'          # True if single-precision floating-point instruction  
 
-  uop_spt: &uop_spt
-    # Extended Fields (Not in base BOOM)  
-    - path: '_taint'  
-    - path: '_dst_taint'  
-    - path: '_rs1_taint'  
-    - path: '_rs2_taint'  
-    - path: '_is_tx'  
-    - path: '_tx_regs'  
-      radix: binary  
-    - path: '_is_inv'
+  uop_full: &uop_full
+    - children: *uop_base
+    - children: *uop_ctrl_flow
+    - children: *uop_regs
+    - children: *uop_xcp
+    - children: *uop_mem
+    - children: *uop_fp
 
 
 # Groups
 groups:
     # General control signals 
-  - name: 'Control'
-    base: $core
-    collapse: false
-    children:
-      - path: .clock
+  - name: 'Control'                     # Name that will show on DVE GUI
+    base: $core                         # Full signal path before the signal name at this level (no trailing . or _)
+    collapse: false                     # Collapse the group after loading the script
+    children:                           # Signals and dividers in this group (not sub groups!)
+      - path: .clock                    # Name of this signal
       - path: .reset
       - path: .csr_io_interrupt
       - path: .csr_io_interrupt_cause
 
     # Decode stage
-  - name: 'Decode'                      # Name that will show on DVE GUI
-    base: $core                         # Full signal name before the signal name (no trailing . or _)
+  - name: 'Decode'                      
+    base: $core                         
     collapse: true
-    children: []                         # Signals belonging to this group. [] for empty
-    subgroups:                          # Subgroups
-    - name: 'Decode Unit ${w}'
+    children: []                        # [] for empty in this level
+    subgroups:                          # Subgroups are defined here
+    - name: 'Decode Unit ${w}'          # Name of the group. It can use $vars form env, $iterators and $expresions
       base: '.decode_units_${w}'
-      iterators: {w: 2}
+      iterators: {w: 2}                 # How many copies of this (sub)group will be created
       children:
         - base: '.io_enq_uop'
-          children: *uop_signals
+          children: *uop_full           # list of signals can be reused and added as a group with the keyword 'children' to avoid repetition
           
-
-    # Rename stage
-  - name: 'Rename'
-    base: '$core'
-    children: []
-    subgroups:
-    - name: 'Integer Rename'
-      base: '.rename_stage'
-      children: []
-      subgroups:
-      - name: 'i ren $i'
-        base: ''
-        iterators: {i: 2}
-        children:
-          - path: '.io_ren2_mask_$i'
-          - path: '.io_ren_stalls_$i'
-          - base: 'io_ren2_uops_$i' 
-            children: *uop_signals
-    - name: 'FP Rename'
-      base: '.fp_rename_stage'
-      children: []
-      subgroups:
-      - name: 'fp ren $i'
-        base: ''
-        iterators: {i: 2}
-        children:
-          - path: '.io_ren_stalls_$i'
-          - base: 'io_ren2_uops_$i' 
-            children: *uop_signals
-                
-  
-  - name: 'Dispatcher'
-    base: '$core'
-    children: []
-    subgroups:
-      - name: 'dis $i'
-        base: ''
-        iterators: {i: 2, j: 1}          # For some reason there are 3 identical instances or io_dis_uops. Only using 0 ($j)
-        children:
-          - path: '.dis_valids_$i'
-          - path: '.dis_fire_$i'
-          - path: '.dis_hazards_$i'
-          - path: '.dispatcher.io_dis_uops_$j_$i_ready'
-          - path: '.dispatcher.io_dis_uops_$j_$i_valid'
-          - base: 'dispatcher.io_dis_uops_$j_$i_bits' 
-            children: *uop_signals
 
   - name: 'ROB'
     base: '$core.rob'
     children:
       - path: '.rob_head_idx'
-        radix: decimal
+        radix: decimal                  # Change radix of the signal
       - path: '.rob_pnr_idx'
         radix: decimal
       - path: '.rob_tail_idx'
@@ -207,13 +158,12 @@ groups:
         subgroups:  
           - name: 'idx ${idx}'
             base: ''
-            iterators: 
-              e: 32      # entries of ROB
-              b: 2      # banks of ROB
-            expr: 
+            iterators:                  # Iterators can be a list
+              e: 32       # entries of ROB
+              b: 2        # banks of ROB
+            expr:                       # Expresions can be constructed with iterators for custom naming
               idx: '(e << 1) + b'                 # entry number since they are alternated between banks
-              bd: ' "1" if b == 1 else "" '       # Bank display (since it is '' if b=0)
-            flag: rob   # custom flag hardcoded in the script to replace b=0 with 
+              bd: ' "1" if b == 1 else "" '       # Bank display (since it is '' if b=0) 
             children:
             - path: '.rob_val_${bd}_${e}'
             - path: '.rob_bsy_${bd}_${e}'
@@ -221,4 +171,4 @@ groups:
             - path: '.rob_exception_${bd}_${e}'
             - path: '.rob_predicated_${bd}_${e}'
             - base: '.rob_uop_${bd}_${e}'
-              children: *uop_signals
+              children: *uop_full

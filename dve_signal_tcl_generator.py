@@ -1,4 +1,7 @@
-import re
+"""
+Generate DVE Tcl scripts with groups and signals based on a YAML config.
+"""
+
 import argparse
 import copy
 import itertools
@@ -6,15 +9,12 @@ import yaml
 from collections import defaultdict
 
 
-#############################################################################
-# Script arguments
+# --- Argument Parsing ---
 
 def parseArguments():
-    """
-    Parse arguments and pass back to main
-    """
+    """Parse command line arguments and return them."""
     parser = argparse.ArgumentParser(
-        description="Generate DVE Tcl scripts with groups and signals based on a "
+        description="Generate DVE Tcl scripts with groups and signals based on a YAML config"
     )
 
     parser.add_argument(
@@ -42,8 +42,7 @@ def parseArguments():
     return args
 
 
-#############################################################################
-# YAML parser stuff
+# --- YAML Parser Helpers ---
 
 def clean_data(d):
     """Recursively remove '_line' and '_file' from dicts/lists."""
@@ -54,6 +53,7 @@ def clean_data(d):
     else:
         return d
 
+
 class ParserError(Exception):
     """General exception for any parser error from the YAML config"""
     def __init__(self, message, data=None):
@@ -61,7 +61,7 @@ class ParserError(Exception):
         self.data = clean_data(data)
         self.line = data.get("_line") if data else None
         self.file = data.get("_file") if data else None
-        super().__init__(self.__str__())    # Calls parent class (Exception)
+        super().__init__(self.__str__())
 
     # Construct string to pass the parent class
     def __str__(self):
@@ -76,17 +76,16 @@ class ParserError(Exception):
         if self.data is not None:
             s += f". Data: {self.data}"
         return s
-    
+
 
 class CustomLoader(yaml.SafeLoader):
     """
     Custom loader that:
      - keeps track of line numbers and file name
-     - flattens dictionaries with the flag '!flatten'
-    
     The constructor is added dynamically as recommended by pyYAML.
     """
     pass
+
 
 def construct_mapping_with_line(loader, node):
     mapping = loader.construct_mapping(node)
@@ -94,10 +93,13 @@ def construct_mapping_with_line(loader, node):
     mapping["_file"] = loader.name  # store filename
     return mapping
 
+
 CustomLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     construct_mapping_with_line
 )
+
+# --- Config Class ---
 
 class Config:
     """
@@ -111,42 +113,39 @@ class Config:
     wave_name = ""
 
     def __init__(self, raw_cfg):
-        
         self.raw_cfg = raw_cfg
 
         # Populate settings
         self.env = self.expand_env()
         self.defaults = self.raw_cfg.get("defaults", {})
 
-        Divider.set_defaults(self.defaults.get("divider_name",  Divider.default_name))
+        Divider.set_defaults(self.defaults.get("divider_name", Divider.default_name))
         Group.set_defaults(self.defaults.get("collapse", Group.default_collapse))
 
         self.settings = self.raw_cfg.get("settings", {})
-        
+    
         self.allowed_radices = self.settings.get("allowed_radices")
         if not self.allowed_radices:
             raise ParserError("Allowed_radices missing under settings.", self.settings)
         Signal.set_defaults(self.allowed_radices)
 
         if "wave_name" not in self.settings:
-            raise ParserError("Wave name has to be set under settings (default value used by dve: 'Wave.1').", self.settings)
+            raise ParserError(
+                "Wave name has to be set under settings (default value used by dve: 'Wave.1').",
+                self.settings
+            )
         else:
             self.wave_name = self.settings["wave_name"]
 
     @classmethod
     def from_file(cls, yaml_file=None):
-        """
-        Alternate constructor: load config from a YAML file.
-        """
-        # Open .yaml config file
+        """Alternate constructor: load config from a YAML file."""
         with open(yaml_file) as f:
             raw_cfg = yaml.load(f, Loader=CustomLoader)
         return cls(raw_cfg)
 
     def expand_env(self):
-        """
-        Recursively expand $var references inside env itself.
-        """
+        """Recursively expand $var references inside env itself."""
         env = self.raw_cfg.get("env", {})
         changed = True
         while changed:
@@ -155,20 +154,19 @@ class Config:
                 if isinstance(v, str):
                     new_v = v
                     for key, val in env.items():
-                        if key != k:  # avoid self-substitution
-                            new_v = new_v.replace(f"${key}", str(val))
+                        if key != k:
+                            new_v = new_v.replace(f"${key}", str(val))          # $var
+                            new_v = new_v.replace(f"${{{key}}}", str(val))      # ${var}
                     if new_v != v:
                         env[k] = new_v
                         changed = True
         return env
 
-#############################################################################
+# --- Helper Functions ---
 
-# ---------- helpers ----------
 def substitute(obj, env):
     """Replace $var and ${var} inside strings, recursively for lists/dicts."""
     if isinstance(obj, str):
-        # Replace $var
         for k, v in env.items():
             obj = obj.replace(f"${k}", str(v))
             obj = obj.replace(f"${{{k}}}", str(v))  # handle ${var}
@@ -180,34 +178,18 @@ def substitute(obj, env):
     return obj
 
 
-def expand_iterators(iters, env):
-    """Return cartesian product of iterator values merged with env."""
-    keys = list(iters.keys())
-    ranges = [range(n) for n in iters.values()]
-    for values in itertools.product(*ranges):
-        new_env = {**env, **dict(zip(keys, values))}
-        yield new_env
+# --- Data Classes ---
 
-
-#############################################################################
-# ---------- data classes ----------
 class Divider:
-    """
-    """
     default_name = "Divider"
 
     @staticmethod
     def set_defaults(divider_name=None):
-        """Set class-level defaults."""
         if divider_name is not None:
             Divider.default_name = divider_name
 
     def __init__(self, name='None'):
         self.name = name or Divider.default_name
-            
-
-    def expand(self):
-        return self
 
     def tcl_print(self, group_id):
         s = f'''gui_sg_addsignal -group "$_session_group_{group_id}" {{ {self.name} }} -divider\n'''
@@ -219,8 +201,6 @@ class Divider:
         return s
 
 class Signal:
-    """
-    """
     allowed_radices = ['decimal', 'binary', 'hex', 'oct', 'ascii']  # Default values, overriden by .yaml
 
     @staticmethod
@@ -233,13 +213,12 @@ class Signal:
         self.path = path          # Actual signal path
         self.radix = radix        # Optional radix]
 
-    def expand(self, env=None, base=None):
+    def expand(self, env=None):
         """
         Expand this signal by substituting $var in path using env.
         """
         env = env or {}
-        base = base or ''
-        return [Signal(path=substitute(self.path, env), radix=self.radix)]
+        return [Signal(path=f"{substitute(self.path, env)}", radix=self.radix)]
 
     def __repr__(self, indent=0):
         ind = "  " * indent
@@ -247,31 +226,21 @@ class Signal:
         return s
 
 class SignalGroup:
-    """
-    """
     def __init__(self, base=None, children=None):
         self.base = base or ''
         self.children = children or []
     
-    def expand(self, env=None, parent_base=None):
-        """
-        Recursively expand $var in the base and children using env and 
-        then return a flat list of children (Signal and Divider).
-        """
+    def expand(self, env=None, parent_base=""):
         env = env or {}
-        parent_base = parent_base or ''
         base = f"{parent_base}{substitute(self.base, env)}"
         flat = []
-
         for child in self.children:
             if isinstance(child, SignalGroup):
-                # Recursive call (unlikely?)
-                flat.append(child.expand(env, base))
+                flat.extend(child.expand(env, base))
             elif isinstance(child, Signal):
                 # Flatten and expand signals
                 flat.append(Signal(path=f"{base}{child.path}", radix=child.radix))
             elif isinstance(child, Divider):
-                # Ignore dividers
                 flat.append(child)
         return flat
 
@@ -281,8 +250,6 @@ class SignalGroup:
         return s
 
 class Group:
-    """
-    """
     default_collapse = True
     line_limit = 3000
 
@@ -294,9 +261,10 @@ class Group:
         if line_limit is not None:
             Group.line_limit = line_limit
 
-    def __init__(self, name, base="", collapse=None, children=None, subgroups=None, iterators=None, expr=None, parent=None, id=None):
+    def __init__(self, name, base=None, collapse=None, children=None, subgroups=None,
+                 iterators=None, expr=None, parent=None, id=None):
         self.name = name
-        self.base = base
+        self.base = base or ""
         self.collapse = collapse if collapse is not None else Group.default_collapse
         self.children = children or []
         self.subgroups = subgroups or []
@@ -304,10 +272,7 @@ class Group:
         self.expr = expr or {}
         self.parent = parent
         self.id = id
-        if self.parent:
-            self.full_name = self.parent.full_name + "|" + self.name 
-        else:
-            self.full_name = self.name
+        self.full_name = f"{self.parent.full_name}|{self.name}" if self.parent else self.name
 
     @staticmethod
     def parse_children(raw_children):
@@ -316,7 +281,6 @@ class Group:
         """
         parsed_children = []
         for s_data in raw_children:
-            # Divider
             if "divider" in s_data:
                 # Dividers should not have more attributes
                 extra_keys = set(s_data.keys()) - {"divider", "_file", "_line"}
@@ -341,7 +305,7 @@ class Group:
                     radix=s_data.get("radix")
                 ))
             # SignalGroup
-            elif "base" in s_data:
+            elif "children" in s_data:
                 # SignalGroups should not have more attributes
                 extra_keys = set(s_data.keys()) - set(vars(SignalGroup()).keys()) - {"_file", "_line"}
                 if extra_keys:
@@ -349,11 +313,11 @@ class Group:
                 
                 sub_children = Group.parse_children(s_data.get("children", []))
                 parsed_children.append(SignalGroup(
-                    base=s_data["base"],
+                    base=s_data.get("base", ""), 
                     children=sub_children
                 ))
             else:
-                raise ParserError("Signal missing 'path' or 'base'", s_data)
+                raise ParserError("Invalid child", s_data)
         return parsed_children
 
     @staticmethod
@@ -388,13 +352,12 @@ class Group:
             for s in parsed_children:
                 flat_children.extend(s.expand())
 
-        # Create the Group object
         group_obj = Group(
             name=data["name"],
-            base=data.get("base"),
+            base=data.get("base", ""),
             collapse=data.get("collapse"),
             children=flat_children,
-            subgroups=[],      # parse separately
+            subgroups=[],      # parse after creation
             iterators=iterators,
             expr=expr,
             parent=parent
@@ -402,81 +365,53 @@ class Group:
 
         # Parse subgroups recursively using the method
         group_obj.parse_subgroups(data.get("subgroups", []))
-        
+
         return group_obj
-    
+
     def parse_subgroups(self, raw_subgroups):
         """
         Parse raw subgroup data into Group objects and set parent=self
         """
-        parsed = []
-        for sg_data in raw_subgroups:
-            sg = Group.parse_group(sg_data, parent=self)
-            parsed.append(sg)
-        self.subgroups = parsed
-        return parsed
+        self.subgroups = [Group.parse_group(sg, parent=self) for sg in raw_subgroups]
+        return self.subgroups
 
     def expand(self, env=None):
         env = env or {}
-
-        def expand_iterators():
-            """Return a flat list of groups after expanding iterators and expressions."""
-            keys = list(self.iterators.keys())
-            ranges = [range(v) for v in self.iterators.values()]
+        if self.iterators:
             expanded = []
-            for values in itertools.product(*ranges):
-                iter_env = {**env, **dict(zip(keys, values))}  # add iterator variables
-                # Evaluate expressions and add them to env
-                for k, expr_str in self.expr.items():
-                    try:
-                        iter_env[k] = eval(expr_str, {}, iter_env)
-                    except Exception as e:
-                        raise ParserError(f"Error evaluating expression '{k}: {expr_str}' -> {e}", data={"expr": self.expr})
-
-                g_copy = copy.deepcopy(self)
-                g_copy.iterators = {}  # avoid re-expanding
-                g_copy.expr = {}       # already expanded
-                expanded.extend(g_copy.expand(iter_env))  # pass iter_env
+            for values in itertools.product(*[range(v) for v in self.iterators.values()]):
+                iter_env = {**env, **dict(zip(self.iterators.keys(), values))}
+                for k, e in self.expr.items():
+                    iter_env[k] = eval(e, {}, iter_env)
+                copy_group = copy.deepcopy(self)
+                copy_group.iterators = {}
+                copy_group.expr = {}
+                expanded.extend(copy_group.expand(iter_env))
             return expanded
 
-        def expand_children(base):
-            """Return a flat list of children in which all signals are with full paths usings group's base."""
-            flat = []
-            for c in self.children:
-                if isinstance(c, Divider):
-                    flat.append(c)
-                else:
-                    flat.extend(c.expand(env, base))
-            return flat
-
-        def expand_subgroups():
-            """Recursively expand subgroups."""
-            flat_subgroups = []
-            for g in self.subgroups:
-                flat_subgroups.extend(g.expand(env))
-            return flat_subgroups
-
-        # Stage 1: iterator expansion
-        if self.iterators:
-            return expand_iterators()
-
-        # Stage 2: substitute env variables
         name = substitute(self.name, env)
         base = substitute(self.base, env)
+        children = []
+        for c in self.children:
+            if isinstance(c, SignalGroup):
+                children.extend(c.expand(env, base))
+            elif isinstance(c, Signal):
+                children.extend(c.expand(env))
+            elif isinstance(c, Divider):
+                children.append(c)
 
-        # Stage 3: expand signals
-        children = expand_children(None)
-
-        # Stage 4: expand subgroups
-        subgroups = expand_subgroups()
+        subgroups = []
+        for sg in self.subgroups:
+            subgroups.extend(sg.expand(env))
 
         return [Group(
-            name=name, 
-            base=base, 
-            collapse=self.collapse, 
-            children=children, 
+            name=name,
+            base=base,
+            collapse=self.collapse,
+            children=children,
             subgroups=subgroups,
-            parent=self.parent)]    
+            parent=self.parent
+        )]
     
     def tcl_global_signal_groups(self):
         """ 
@@ -540,33 +475,28 @@ set {{{self.parent.full_name}|{self.name}}} "$_session_group_{self.id}"\n\n'''
         
         return s
     
-    def tcl_view_group(self, wave, prev_group_name=None):
+    def tcl_view_group(self, wave, prev_group_name="New Group"):
         """ 
         Generate the code after the comment: # View 'Wave.1' 
         so signal groups are actually added to the Wave view
         """
-        prev_group_name = prev_group_name or "New Group"
         s = f'''gui_list_add_group -id ${{{wave}}} -after {{{prev_group_name}}} {{{{{self.full_name}}}}}\n'''
         
         if self.subgroups:
             prev_subgroup = self.full_name
             for sg in self.subgroups:
-                s += sg.tcl_view_group(prev_subgroup)
+                s += sg.tcl_view_group(wave, prev_subgroup)
                 prev_subgroup = sg.full_name
         return s
-    
+
     def tcl_collapse_group(self, wave):
         """ 
         Generate the code after the comment: # View 'Wave.1' 
         to collapse groups (after they have been added)
         """
-        s = ""
-        if self.collapse:
-            s = f'''gui_list_collapse -id ${{{wave}}} {{{self.full_name}}}\n'''
-            if self.subgroups:
-                for sg in self.subgroups:
-                    s += sg.tcl_collapse_group(wave)
-               
+        s = f'''gui_list_collapse -id ${{{wave}}} {{{self.full_name}}}\n''' if self.collapse else ""
+        for sg in self.subgroups:
+            s += sg.tcl_collapse_group(wave)
         return s
 
     def __repr__(self):
@@ -586,8 +516,8 @@ set {{{self.parent.full_name}|{self.name}}} "$_session_group_{self.id}"\n\n'''
             s += "\n" + "\n".join(subgroup.__str__(indent + 1) for subgroup in self.subgroups)
         return s
 
-#############################################################################
 
+# --- Utility functions ---
 
 def fix_parents(groups):
     """
@@ -600,6 +530,7 @@ def fix_parents(groups):
             sg.parent = g  # reset parent reference to the expanded parent
             sg.base = g.base + sg.base
             fix_parents([sg])
+
 
 def assign_ids(groups, start=1):
     """
@@ -647,51 +578,32 @@ def print_command_signals(command='', base='', closing='', separator=' ', signal
         s += line + closing
     return s
 
-#############################################################################
-# Main
+# --- Main function ---
+
 def main():
     """
     """
-    # Parse arguments
     args = parseArguments()
-
-    # Load .yaml config file
     cfg = Config.from_file(args.config)
 
-    # List of groups directly parsed
     raw_groups = [Group.parse_group(g) for g in cfg.raw_cfg["groups"]]
-
-    # Expand subgroups
     groups = []
     for rg in raw_groups:
         groups.extend(rg.expand(cfg.env))
 
-    # for g in groups:
-    #     set_parent_names(rg)
-    
-    # Fix parents after flattening
     fix_parents(groups)
+    assign_ids(groups, start=cfg.settings.get("starting_id", 1))
 
-    # Assign incremental IDs
-    assign_ids(groups, start=cfg.settings["starting_id"])
-
-    # # debug print
-    # for g in groups:
-    #     print(g)
-
-    # prepare the strings to be printed
-    global_signal_groups = "# Creating groups and adding signals"
+    global_signal_groups = "# Creating groups and adding signals\n"
     add_groups = "# Adding groups to the view\n"
-    collapse_groups = "# Collapsing groups and its children\n"
-    last_group_fullname = "New Group"   # Default starting group
+    collapse_groups = "# Collapsing groups\n"
+
+    last_group_fullname = "New Group"
     for g in groups:
         global_signal_groups += g.tcl_global_signal_groups()
-        
         add_groups += g.tcl_view_group(wave=cfg.wave_name, prev_group_name=last_group_fullname)
+        collapse_groups += g.tcl_collapse_group(cfg.wave_name)
         last_group_fullname = g.full_name
-        
-        collapse_groups += g.tcl_collapse_group(wave=cfg.wave_name)
-
 
     # Load original .tcl script
     with open(args.source) as f:
@@ -704,7 +616,7 @@ def main():
         if "gui_wv_zoom_timerange" in line:
             new_lines.append(f"# Zooming out\ngui_wv_zoom_outfull -id ${{{Config.wave_name}}}\n")
         # Leave as it is
-        else:            
+        else:
             new_lines.append(line)
         
         # Apend stuff
@@ -713,20 +625,21 @@ def main():
         if "gui_wv_zoom_timerange -id ${Wave.1}" in line:
             new_lines.append(add_groups + collapse_groups + "\n")
 
-    # Write to new file
+    # Write to .tcl file
     with open(args.output, "w") as f:
         f.writelines(new_lines)
+
+    # Debug
+    # for g in groups:
+    #     print(g)
 
     # print(global_signal_groups)
     # print(add_groups)
     # print(collapse_groups)
 
 
-
-
-# END OF FUNCTIONS
+# --- END OF USER FUNCTIONS ---
 
 if __name__ == "__main__":
     main()
-
-# END OF FILE
+# --- END OF FILE ---
