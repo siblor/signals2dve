@@ -142,15 +142,20 @@ class Config:
     def __init__(self, raw_cfg):
         self.raw_cfg = raw_cfg
 
-        # Populate settings
-        self.env = self.expand_env()
-        self.defaults = self.raw_cfg.get("defaults", {})
+        # Load environment first
+        self.env = self.raw_cfg.get("env", {})
+        self._expand_env_in_dict(self.env)
 
+        # Apply environment substitutions to the whole config
+        self.raw_cfg = self._substitute_env(self.raw_cfg, self.env)
+
+        # Defaults
+        self.defaults = self.raw_cfg.get("defaults", {})
         Divider.set_defaults(self.defaults.get("divider_name", Divider.default_name))
         Group.set_defaults(self.defaults.get("collapse", Group.default_collapse))
 
+        # Settings
         self.settings = self.raw_cfg.get("settings", {})
-    
         self.allowed_radices = self.settings.get("allowed_radices")
         if not self.allowed_radices:
             raise ParserError("Allowed_radices missing under settings.", self.settings)
@@ -169,25 +174,47 @@ class Config:
         """Alternate constructor: load config from a YAML file."""
         with open(yaml_file) as f:
             raw_cfg = yaml.load(f, Loader=CustomLoader)
+            if 'settings' not in raw_cfg:
+                raise ParserError("YAML must define a 'settings' section", raw_cfg)
+            return cls(raw_cfg)
+
         return cls(raw_cfg)
 
-    def expand_env(self):
-        """Recursively expand $var references inside env itself."""
-        env = self.raw_cfg.get("env", {})
+    def _expand_env_in_dict(self, d):
+        """
+        Recursively expand environment variables inside the env dict itself.
+        Allows for chaining, e.g., $x = 5, $y = $x + 1
+        """
         changed = True
         while changed:
             changed = False
-            for k, v in env.items():
+            for k, v in d.items():
                 if isinstance(v, str):
                     new_v = v
-                    for key, val in env.items():
+                    for key, val in d.items():
                         if key != k:
-                            new_v = new_v.replace(f"${key}", str(val))          # $var
-                            new_v = new_v.replace(f"${{{key}}}", str(val))      # ${var}
+                            new_v = new_v.replace(f"${key}", str(val))
+                            new_v = new_v.replace(f"${{{key}}}", str(val))
                     if new_v != v:
-                        env[k] = new_v
+                        d[k] = new_v
                         changed = True
-        return env
+
+    def _substitute_env(self, obj, env):
+        """Recursively replace $var and ${var} in strings, lists, and dicts."""
+        if isinstance(obj, str):
+            for k, v in env.items():
+                obj = obj.replace(f"${k}", str(v))
+                obj = obj.replace(f"${{{k}}}", str(v))
+            # Convert numeric strings to int if possible
+            if obj.isdigit():
+                return int(obj)
+            return obj
+        elif isinstance(obj, list):
+            return [self._substitute_env(x, env) for x in obj]
+        elif isinstance(obj, dict):
+            return {k: self._substitute_env(v, env) for k, v in obj.items()}
+        return obj
+
 
 # --- Helper Functions ---
 
