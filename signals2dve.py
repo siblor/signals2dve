@@ -1,6 +1,31 @@
 """
-Generate DVE Tcl scripts with groups and signals based on a YAML config.
+signals2dve.py
+
+Generate DVE-compatible TCL signal groups from a YAML configuration.
+
+This script automates the creation of signal and group definitions for
+DVE waveform views by:
+
+  - Parsing a YAML config file that defines signals, groups, dividers,
+    in a dynamic way.
+  - Expanding environment variables and iterators for flexible signal paths.
+  - Generating TCL commands to create signal groups, add signals, set
+    radices, and collapse groups in a DVE waveform view.
+  - Patching a source TCL file by inserting the generated code in the
+    appropriate sections.
+
+Usage:
+    python signals2dve.py -c config.yaml -s source.tcl -o output.tcl
+
+Notes:
+  - The script does not modify signals outside of the config-specified
+    sections.
+  - All group IDs, names, and signal paths are automatically handled.
+  - Designed to work with Synopsys DVE.
+
+Author: Simón Blanco
 """
+
 
 import argparse
 import copy
