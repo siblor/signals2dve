@@ -134,43 +134,43 @@ groups:
     collapse: true
     children: []                        # [] for empty in this level
     subgroups:                          # Subgroups are defined here
-    - name: 'Decode Unit ${w}'          # Name of the group. It can use $vars form env, $iterators and $expresions
-      base: '.decode_units_${w}'
-      iterators: {w: $width}                 # How many copies of this (sub)group will be created
-      children:
-        - base: '.io_enq_uop'
-          children: *uop_full           # list of signals can be reused and added as a group with the keyword 'children' to avoid repetition
+      - name: 'Decode Unit ${w}'          # Name of the group. It can use $vars form env, $iterators and $expresions
+        base: '.decode_units_${w}'
+        iterators: {w: $width}                 # How many copies of this (sub)group will be created
+        children:
+          - base: '.io_enq_uop'
+            children: *uop_full           # list of signals can be reused and added as a group with the keyword 'children' to avoid repetition
   
   # Rename stage
   - name: 'Rename'
     base: '$core'
     children: []
     subgroups:
-    - name: 'Integer Rename'
-      base: '.rename_stage'
-      children: []
-      subgroups:
-      - name: 'i ren $w'
-        base: ''
-        iterators: {w: $width}
-        children:
-          - path: '.io_ren2_mask_$w'
-          - path: '.io_ren_stalls_$w'
-          - base: '.io_ren2_uops_$w' 
-            children: *uop_full
-    - name: 'FP Rename'
-      base: '.fp_rename_stage'
-      children: []
-      subgroups:
-      - name: 'fp ren $w'
-        base: ''
-        iterators: {w: $width}
-        children:
-          - path: '.io_ren_stalls_$w'
-          - base: '.io_ren2_uops_$w' 
-            children: *uop_full
+      - name: 'Integer Rename'
+        base: '.rename_stage'
+        children: []
+        subgroups:
+          - name: 'i ren $w'
+            base: ''
+            iterators: {w: $width}
+            children:
+              - path: '.io_ren2_mask_$w'
+              - path: '.io_ren_stalls_$w'
+              - base: '.io_ren2_uops_$w' 
+                children: *uop_full
+      - name: 'FP Rename'
+        base: '.fp_rename_stage'
+        children: []
+        subgroups:
+          - name: 'fp ren $w'
+            base: ''
+            iterators: {w: $width}
+            children:
+              - path: '.io_ren_stalls_$w'
+              - base: '.io_ren2_uops_$w' 
+                children: *uop_full
                 
-  
+  # Dispatch stage
   - name: 'Dispatcher'
     base: '$core'
     children: []
@@ -187,6 +187,7 @@ groups:
           - base: '.dispatcher.io_dis_uops_$i_$w_bits' 
             children: *uop_full
 
+  # ReOrder Buffer
   - name: 'ROB'
     base: '$core.rob'
     children:
@@ -211,29 +212,27 @@ groups:
               idx: '(e << 1) + b'                 # entry number since they are alternated between banks
               bd: ' "1" if b == 1 else "" '       # Bank display (since it is '' if b=0) 
             children:
-            - path: '.rob_val_${bd}_${e}'
-            - path: '.rob_bsy_${bd}_${e}'
-            - path: '.rob_unsafe_${bd}_${e}'
-            - path: '.rob_exception_${bd}_${e}'
-            - path: '.rob_predicated_${bd}_${e}'
-            - base: '.rob_uop_${bd}_${e}'
-              children: *uop_full
-              
+              - path: '.rob_val_${bd}_${e}'
+              - path: '.rob_bsy_${bd}_${e}'
+              - path: '.rob_unsafe_${bd}_${e}'
+              - path: '.rob_exception_${bd}_${e}'
+              - path: '.rob_predicated_${bd}_${e}'
+              - base: '.rob_uop_${bd}_${e}'
+                children: *uop_full
       - name: 'Commit lane $w'
         base: '.io_commit'
         iterators: { w: $width }
         children:
-        - path: '_valids_$w'
-        - base: '_uops_$w'
-          children: *uop_full
-
+          - path: '_valids_$w'
+          - base: '_uops_$w'
+            children: *uop_full
       - name: 'Enqueue lane $w'
         base: '.io_commit'
         iterators: { w: $width }
         children:
-        - path: '_valids_$w'
-        - base: '_uops_$w'
-          children: *uop_full
+          - path: '_valids_$w'
+          - base: '_uops_$w'
+            children: *uop_full
 
         
         
