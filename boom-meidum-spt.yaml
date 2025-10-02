@@ -234,8 +234,65 @@ groups:
           - base: '_uops_$w'
             children: *uop_full
 
-        
-        
-              
+  # Issue stage
+  - name: 'Issue Units'
+    base: '$core'
+    children: []
+    subgroups:
+      - name: 'Untaint bus'
+        base: '.global_untaint_broadcast'
+        children:
+          - path: '0_valid'
+          - path: '0_bits_preg'
+          - path: '0_bits_is_fp'
+          - path: '1_valid'
+          - path: '1_bits_preg'
+          - path: '1_bits_is_fp'
+          - divider: 'Memory IU'
+          - path: '2_valid'
+          - path: '2_bits_preg'
+          - path: '2_bits_is_fp'
+          - divider: 'FP IU'
+          - path: '3_valid'
+          - path: '3_bits_preg'
+          - path: '3_bits_is_fp'
 
+      - name: 'Integer IU'
+        base: '.int_issue_unit'
+        subgroups:
+          - name: 'Issue lane $w'
+            base: '.io_iss'
+            iterators: {w: 2}
+            children:
+              - path: _valids_$w
+              - base: _uops_$w
+                children: *uop_full
+          - name: 'Slots'
+            subgroups:
+              - name: 'Slot $s'
+                base: '.slots_$s'
+                iterators: {s: 20}
+                children: *slot_children
+                subgroups: *slot_subgroups
     
+      # - name: 'Memory IU'
+      #   base: '.mem_issue_unit'
+      #   children:
+      #     - 
+      #   subgroups:
+      #     - name: 'Slot $s'
+      #       base: '.slots_$s'
+      #       iterators: {s: 12}
+      #       children:
+      #         - path:
+
+      # - name: 'FP IU'
+      #   base: '.fp_pipeline.fp_issue_unit'
+      #   children:
+          
+      #   subgroups:
+      #     - name: 'Slot $s'
+      #       base: '.slots_$s'
+      #       iterators: {s: 12}
+      #       children:
+      #       - path:  
