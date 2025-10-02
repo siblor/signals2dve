@@ -245,6 +245,13 @@ class Divider:
     def __init__(self, name='None'):
         self.name = name or Divider.default_name
 
+    def expand(self, env=None):
+        """
+        Expand this signal by substituting $var in path using env.
+        """
+        env = env or {}
+        return [Divider(name=f"{substitute(self.name, env)}")]
+
     def tcl_print(self, group_id):
         s = f'''gui_sg_addsignal -group "$_session_group_{group_id}" {{ {self.name} }} -divider\n'''
         return s
@@ -326,7 +333,7 @@ class Group:
         self.expr = expr or {}
         self.parent = parent
         self.id = id
-        self.full_name = f"{self.parent.full_name}|{self.name}" if self.parent else self.name
+        self.full_name = self.name  # It will be expanded for subgroups
 
     @staticmethod
     def parse_children(raw_children):
@@ -573,17 +580,20 @@ set {{{self.parent.full_name}|{self.name}}} "$_session_group_{self.id}"\n\n'''
 
 # --- Utility functions ---
 
-def fix_parents(groups):
+def fix_parents(groups, parent=None):
     """
-    After expansion and ID assignment, make sure every subgroup's
-    parent.id points to the assigned id of its parent object, and subgroups inherit their
-    parent.base.
+    After expansion and ID assignment, refresh parent references,
+    inherit bases, and recompute full_name recursively.
     """
     for g in groups:
-        for sg in g.subgroups:
-            sg.parent = g  # reset parent reference to the expanded parent
-            sg.base = g.base + sg.base
-            fix_parents([sg])
+        g.parent = parent
+        if parent:
+            g.base = parent.base + g.base
+            g.full_name = f"{parent.full_name}|{g.name}"
+        else:
+            g.full_name = g.name
+
+        fix_parents(g.subgroups, g)
 
 
 def assign_ids(groups, start=1):
