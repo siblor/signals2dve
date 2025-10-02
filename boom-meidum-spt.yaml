@@ -115,6 +115,33 @@ defaults:
     - children: *uop_mem
     - children: *uop_fp
 
+  # Valid uops
+  valid_uop_full: &valid_uop_full
+    - path: _valids
+    - base: _uops
+      children: *uop_full
+
+  # Template for slots
+  slot_children: &slot_children
+    - path: '.io_valid'
+    - path: '.io_will_be_valid'
+    - path: '.io_request'
+    # - path: '.io_request_hp'    # Not used in age-ordering issue unit
+    - path: '.io_grant'
+    - path: '.io_kill'
+    - path: '.io_clear'
+
+  # TODO: in_uop doesn't work
+  slot_subgroups: &slot_subgroups
+    - name: 'in_uop'    # Input to the slot
+      base: '.io_in_uop'
+      children: *valid_uop_full
+    - name: 'out_uop'   # Output to another slot (reordering)
+      base: '.io_out_uop'
+      children: *uop_full
+    - name: 'uop'       # Output down the pipeline
+      base: '.io_uop'
+      children: *uop_full
 
 # Groups
 groups:
