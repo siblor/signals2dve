@@ -678,7 +678,7 @@ def main():
     for line in lines:
         # Substitute stuff
         if "gui_wv_zoom_timerange" in line:
-            new_lines.append(f"# Zooming out\ngui_wv_zoom_outfull -id ${{{Config.wave_name}}}\n")
+            new_lines.append(f"# Zooming out\ngui_wv_zoom_outfull -id ${{{cfg.wave_name}}}\n")
         # Leave as it is
         else:
             new_lines.append(line)
