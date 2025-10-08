@@ -1,2 +1,11 @@
-output.tcl
-input_blank.tcl
+*.tcl
+*.tcl~
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.swp
+*.bak
+.venv/
+.env/

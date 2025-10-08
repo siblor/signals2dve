@@ -24,9 +24,11 @@ Notes:
     sections.
   - All group IDs, names, and signal paths are automatically handled.
   - Designed to work with Synopsys DVE.
-
-Author: Simón Blanco
 """
+
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Simón Blanco Ortiz
+
 
 
 import argparse
