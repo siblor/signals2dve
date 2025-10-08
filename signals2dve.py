@@ -253,7 +253,7 @@ class Divider:
         return [Divider(name=f"{substitute(self.name, env)}")]
 
     def tcl_print(self, group_id):
-        s = f'''gui_sg_addsignal -group "$_session_group_{group_id}" {{ {self.name} }} -divider\n'''
+        s = f'''gui_sg_addsignal -group "$_session_group_{group_id}" {{ {{{self.name}}} }} -divider\n'''
         return s
     
     def __repr__(self, indent=0):
