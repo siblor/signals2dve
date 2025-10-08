@@ -388,8 +388,8 @@ class Group:
         """
         if "name" not in data:
             raise ParserError("Group missing 'name' field", data)
-        if "base" not in data:
-            raise ParserError("Group missing 'base' field", data)
+        # if "base" not in data:
+        #     raise ParserError("Group missing 'base' field", data)
 
         # Parse iterators
         raw_iterators = clean_data(data.get("iterators", {}))
