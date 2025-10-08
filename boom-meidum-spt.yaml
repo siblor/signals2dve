@@ -7,8 +7,8 @@
 # Examples are shown below for a BOOM Medium configuration
 
 env:
-  top: TestDriver.testHarness.chiptop.system.tile_prci_domain.tile_reset_domain.boom_tile
-  core: $top.core
+  tile: TestDriver.testHarness.chiptop.system.tile_prci_domain.tile_reset_domain.boom_tile
+  core: $tile.core
   width: 2
 
 settings:
@@ -101,6 +101,17 @@ defaults:
     - path: '_is_unique'          # True if instruction must execute alone in pipeline (serializing)  
     - path: '_flush_on_commit'    # True if instruction needs to flush pipeline behind it on commit  
   
+  uop_spt: &uop_spt
+    # Extended Fields (Not in base BOOM). Specific to SPT 
+    - path: '_taint'
+    - path: '_dst_taint'
+    - path: '_rs1_taint'
+    - path: '_rs2_taint'
+    - path: '_is_tx'
+    - path: '_tx_regs'
+      radix: binary
+    - path: '_is_inv'
+
 
   uop_fp: &uop_fp
     # Floating-Point Fields  
@@ -117,11 +128,33 @@ defaults:
 
   # Valid uops
   valid_uop_full: &valid_uop_full
-    - path: _valids
-    - base: _uops
+    - path: '_valid'
+    - base: '_bits'
       children: *uop_full
 
-  # Template for slots
+  # FuncUnitReq
+  FuncUnitReq_uop_full: &FuncUnitReq_uop_full 
+    - path: '_rs1_data'
+    - path: '_rs2_data'
+    - path: '_rs3_data'
+    - path: '_pred_data'
+    - base: '_uop'
+      children: *uop_full
+
+  # FuncUnitResp
+  FuncUnitResp_uop_full: &FuncUnitResp_uop_full
+    - path: '_predicated'
+    - path: '_data'
+    - path: '_addr'
+    - path: '_mxcpt_valid'
+    - path: '_sfence_valid'
+    - path: '_sfence_bits_rs1'
+    - path: '_sfence_bits_rs2'
+    - path: '_sfence_bits_addr'
+    - base: '_uop'
+      children: *uop_full
+      
+  # Templates for slots
   slot_children: &slot_children
     - path: '.io_valid'
     - path: '.io_will_be_valid'
@@ -131,7 +164,7 @@ defaults:
     - path: '.io_kill'
     - path: '.io_clear'
 
-  # TODO: in_uop doesn't work
+
   slot_subgroups: &slot_subgroups
     - name: 'in_uop'    # Input to the slot
       base: '.io_in_uop'
@@ -237,7 +270,7 @@ groups:
               b: 2        # banks of ROB
             expr:                       # Expresions can be constructed with iterators for custom naming
               idx: '(e << 1) + b'                 # entry number since they are alternated between banks
-              bd: ' "1" if b == 1 else "" '       # Bank display (since it is '' if b=0) 
+              bd: ' b if b != 0 else "" '       # Bank display (since it is '' if b=0) 
             children:
               - path: '.rob_val_${bd}_${e}'
               - path: '.rob_bsy_${bd}_${e}'
@@ -266,23 +299,25 @@ groups:
     base: '$core'
     children: []
     subgroups:
+        # Specific to SPT
       - name: 'Untaint bus'
         base: '.global_untaint_broadcast'
         children:
-          - path: '0_valid'
-          - path: '0_bits_preg'
-          - path: '0_bits_is_fp'
-          - path: '1_valid'
-          - path: '1_bits_preg'
-          - path: '1_bits_is_fp'
+          - divider: 'Integer IU'
+          - path: '_0_valid'
+          - path: '_0_bits_preg'
+          - path: '_0_bits_is_fp'
+          - path: '_1_valid'
+          - path: '_1_bits_preg'
+          - path: '_1_bits_is_fp'
           - divider: 'Memory IU'
-          - path: '2_valid'
-          - path: '2_bits_preg'
-          - path: '2_bits_is_fp'
+          - path: '_2_valid'
+          - path: '_2_bits_preg'
+          - path: '_2_bits_is_fp'
           - divider: 'FP IU'
-          - path: '3_valid'
-          - path: '3_bits_preg'
-          - path: '3_bits_is_fp'
+          - path: '_3_valid'
+          - path: '_3_bits_preg'
+          - path: '_3_bits_is_fp'
 
       - name: 'Integer IU'
         base: '.int_issue_unit'
@@ -302,24 +337,180 @@ groups:
                 children: *slot_children
                 subgroups: *slot_subgroups
     
-      # - name: 'Memory IU'
-      #   base: '.mem_issue_unit'
-      #   children:
-      #     - 
-      #   subgroups:
-      #     - name: 'Slot $s'
-      #       base: '.slots_$s'
-      #       iterators: {s: 12}
-      #       children:
-      #         - path:
+      - name: 'Memory IU'
+        base: '.mem_issue_unit'
+        subgroups:
+          - name: 'Issue lane $w'
+            base: '.io_iss'
+            iterators: {w: 1}
+            children:
+              - path: _valids_$w
+              - base: _uops_$w
+                children: *uop_full
+          - name: 'Slots'
+            subgroups:
+              - name: 'Slot $s'
+                base: '.slots_$s'
+                iterators: {s: 12}
+                children: *slot_children
+                subgroups: *slot_subgroups      
 
-      # - name: 'FP IU'
-      #   base: '.fp_pipeline.fp_issue_unit'
-      #   children:
-          
-      #   subgroups:
-      #     - name: 'Slot $s'
-      #       base: '.slots_$s'
-      #       iterators: {s: 12}
-      #       children:
-      #       - path:  
+      - name: 'FP IU'
+        base: '.fp_pipeline.fp_issue_unit'
+        subgroups:
+          - name: 'Issue lane $w'
+            base: '.io_iss'
+            iterators: {w: 1}
+            children:
+              - path: _valids_$w
+              - base: _uops_$w
+                children: *uop_full
+          - name: 'Slots'
+            subgroups:
+              - name: 'Slot $s'
+                base: '.slots_$s'
+                iterators: {s: 16}
+                children: *slot_children
+                subgroups: *slot_subgroups
+
+  # Registers
+  - name: 'Registers'
+    base: '$core'
+    children: []
+    subgroups:
+      - name: 'Int RF'
+        base: '.iregfile'
+        children:
+          - path: '.regfile'
+      - name: 'Int Register Read'
+        base: '.iregister_read'
+        children: []
+        subgroups:
+          - name: 'rrd_$w'
+            base: '.io_exe_reqs_$w' #'rrd_decode_unit$s' Not needed, read from top .iregister_read
+            iterators: {w: 3}
+            expr:                       
+              s: ' w if w != 0 else "" '
+            children: 
+              - path: '_valid'
+              - base: '_bits'
+                children: *FuncUnitReq_uop_full
+
+      - name: 'FP RF'
+        base: '.fp_pipeline.fregfile'
+        children:
+          - path: '.regfile' 
+      
+      - name: 'FP Register Read'
+        base: '.fp_pipeline.fregister_read'
+        children: []
+        subgroups:
+          - name: 'rrd_$w'
+            base: '.io_exe_reqs_$w'
+            iterators: {w: 1}
+            expr:                       
+              s: ' w if w != 0 else "" '
+            children:
+              - path: '_valid'
+              - base: '_bits'
+                children: *FuncUnitReq_uop_full
+
+  # Execution Units
+  - name: 'Execution Units'
+    # TODO: expand this section
+
+  # Memory
+  - name: 'Memory'
+    base: '$tile.lsu'   # .exe_tlb_uop_0_nonspec
+    children: 
+      - path: '.exe_tlb_uop_0_nonspec '
+      - path: '.exe_tlb_uop_0_rs1_taint'
+      - path: '.exe_tlb_uop_0_rob_idx'
+    subgroups:
+      - name: 'exe io'
+        base: ''
+        subgroups:
+          - name: 'req'
+            base: 'io_core_exe_0_req'
+            children: 
+              - path: '_valid'
+              - base: '_bits'
+                children: *FuncUnitResp_uop_full
+          - name: 'iresp'
+            base: '.io_core_exe_0_iresp'
+            children:  
+              - path: '_valid'
+              # - path: '_ready'
+              - base: '_bits'
+                children: *FuncUnitResp_uop_full
+          - name: 'fresp'
+            base: '.io_core_exe_0_fresp'
+            children:  
+              - path: '_valid'
+              # - path: '_ready'
+              - base: '_bits'
+                children: *FuncUnitResp_uop_full          
+
+      - name: 'LDQ'
+        base: ''
+        children:
+          - path: '.ldq_head'
+          # - path: '.ldq_tail'
+          - path: '.mem_ldq_retry_e_out_bits_uop_nonspec'       # Specific to SPT
+          - path: '.mem_ldq_retry_e_out_bits_uop_rs1_taint'     # Specific to SPT
+          - path: '.ldq_retry_idx'
+          - path: '.will_fire_load_incoming_0_will_fire '
+          - path: '.will_fire_load_retry_0_will_fire'
+        subgroups:
+          - name: 'ldq entry $e'
+            base: '.ldq_$e'
+            iterators: {e: 16}
+            children:
+              # Valid LDQ entry
+              - path: '_valid'
+              - base: '_bits'
+                children:
+                  - path: '_executed'
+                  - path: '_succeded'
+                  - path: '_failure'
+                  - path: '_order_fail'
+                  - path: '_observed'
+                  - path: '_st_dep_mask'
+                  - path: '_youngest_stq_val'
+                  - path: '_forward_std_val'
+                  - path: '_forward_stq_idx'
+                  - divider: 'uop'
+                  - base: 'uop'
+                    children: *uop_full
+                  - divider: 'Address'
+                  - path: '_addr_valid'
+                  - path: '_addr_bits'
+                  - path: '_addr_is_virtual'
+                  - path: '_addr_is_uncacheable'
+
+      - name: 'STQ'
+        base: ''
+        children:
+          - path: '.stq_head'
+          - path: '.stq_commit_head'
+          - path: '.stq_execute_head'
+        subgroups:
+          - name: 'stq entry $e'
+            base: '.stq_$e'
+            iterators: {e: 16}
+            children:
+              # Valid STQ entry
+              - path: '_valid'
+              - base: '_bits'
+                children:
+                  - path: '_commited'
+                  - path: '_succeded'
+                  - divider: 'uop'
+                  - base: 'uop'
+                    children: *uop_full
+                  - divider: 'Address'
+                  - path: '_addr_valid'
+                  - path: '_addr_bits'
+                  - path: '_addr_is_virtual'
+                  - path: '_data_valid'
+                  - path: '_data_bits'
