@@ -253,7 +253,7 @@ class Divider:
         return [Divider(name=f"{substitute(self.name, env)}")]
 
     def tcl_print(self, group_id):
-        s = f'''gui_sg_addsignal -group "$_session_group_{group_id}" {{ {self.name} }} -divider\n'''
+        s = f'''gui_sg_addsignal -group "$_session_group_{group_id}" {{ {{{self.name}}} }} -divider\n'''
         return s
     
     def __repr__(self, indent=0):
@@ -678,7 +678,7 @@ def main():
     for line in lines:
         # Substitute stuff
         if "gui_wv_zoom_timerange" in line:
-            new_lines.append(f"# Zooming out\ngui_wv_zoom_outfull -id ${{{Config.wave_name}}}\n")
+            new_lines.append(f"# Zooming out\ngui_wv_zoom_outfull -id ${{{cfg.wave_name}}}\n")
         # Leave as it is
         else:
             new_lines.append(line)
