@@ -1,5 +1,5 @@
 *.tcl
-*.tcl~
+*~
 __pycache__/
 *.pyc
 *.pyo
@@ -9,3 +9,5 @@ __pycache__/
 *.bak
 .venv/
 .env/
+
+!gen_empty_session.tcl

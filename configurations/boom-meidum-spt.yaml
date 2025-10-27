@@ -2,10 +2,11 @@
 #
 #
 # - To reference iterators and expresions, use always the capsule ${ }.
-# - Always check the DVE's console after loading the script. Some signals could be not found
-# 
+# - Always check the DVE's console after loading the script. Some signals could
+#   be not found
+#
 # Examples are shown below for a BOOM Medium configuration
-
+---
 env:
   tile: TestDriver.testHarness.chiptop.system.tile_prci_domain.tile_reset_domain.boom_tile
   core: $tile.core
@@ -13,7 +14,7 @@ env:
 
 settings:
   line_limit: 3900
-  allowed_radices: ['decimal' , 'binary', 'hex', 'oct', 'ascii']
+  allowed_radices: ['decimal', 'binary', 'hex', 'oct', 'ascii']
   wave_name: 'Wave.1'
   starting_id: 1        # Pick a higher number if there are already groups created ()
   collapse_all: true    # Collapse all groups
@@ -23,90 +24,92 @@ defaults:
   collapse: true
   divider_name: 'Divider'
 
-  uop_base: &uop_base  
-    # Core Operation Fields  
-    - path: '_uopc'               # Micro-operation code specifying the operation type  
-      radix: decimal  
-    - path: '_inst'               # 32-bit RISC-V instruction word  
-    - path: '_debug_inst'         # Debug version of instruction  
-    - path: '_is_rvc'             # True if 16-bit compressed RISC-V instruction  
-    - path: '_debug_pc'           # Debug program counter value  
-    - path: '_iq_type'            # Issue queue type (integer, memory, or floating-point)  
-    - path: '_fu_code'            # Functional unit code specifying execution unit  
-      radix: decimal  
-  
+  uop_base: &uop_base
+    # Core Operation Fields
+    - path: '_uopc'             # Micro-operation code specifying the operation type
+      radix: decimal
+    - path: '_inst'             # 32-bit RISC-V instruction word
+    - path: '_debug_inst'       # Debug version of instruction
+    - path: '_is_rvc'           # True if 16-bit compressed RISC-V instruction
+    - path: '_debug_pc'         # Debug program counter value
+    - path: '_iq_type'          # Issue queue type (integer, memory, or floating-point)
+    - path: '_fu_code'          # Functional unit code specifying execution unit
+      radix: decimal
+
   uop_ctrl_flow: &uop_ctrl_flow
-    # Branch and Control Flow Fields  
-    - path: '_is_br'              # True if this is a branch instruction  
-    - path: '_is_jalr'            # True if this is a JALR (jump and link register) instruction  
-    - path: '_is_jal'             # True if this is a JAL (jump and link) instruction  
-    - path: '_is_sfb'             # Shadow fetch branch or in shadow of one for branch prediction optimization  
-    - path: '_br_mask'            # Branch mask indicating which speculative branches this depends on  
-    - path: '_br_tag'             # Branch tag for tracking speculative execution  
-    - path: '_ftq_idx'            # Index into Fetch Target Queue for fetch PC and prediction metadata  
-    - path: '_edge_inst'          # True if instruction straddles two fetch packets (crosses fetch boundary)  
-    - path: '_pc_lob'             # Low-order bits of PC, combined with FTQ entry to get full PC  
-    - path: '_taken'              # True if this branch was predicted taken 
-    # Debug and Tracing Fields  
-    - path: '_debug_fsrc'         # Source tracking for branch prediction  
-  
+    # Branch and Control Flow Fields
+    - path: '_is_br'            # True if this is a branch instruction
+    - path: '_is_jalr'          # True if this is a JALR (jump and link register) instruction
+    - path: '_is_jal'           # True if this is a JAL (jump and link) instruction
+    - path: '_is_sfb'           # Shadow fetch branch or in shadow of one for branch prediction optimization
+    - path: '_br_mask'          # Branch mask indicating which speculative branches this depends on
+    - path: '_br_tag'           # Branch tag for tracking speculative execution
+    - path: '_ftq_idx'          # Index into Fetch Target Queue for fetch PC and prediction metadata
+    - path: '_edge_inst'        # True if instruction straddles two fetch packets (crosses fetch boundary)
+    - path: '_pc_lob'           # Low-order bits of PC, combined with FTQ entry to get full PC
+    - path: '_taken'            # True if this branch was predicted taken
+    # Debug and Tracing Fields
+    - path: '_debug_fsrc'       # Source tracking for branch prediction
+
   uop_regs: &uop_regs
-    # Logical Register Fields  
-    - path: '_ldst'               # Logical destination register specifier  
-      radix: decimal  
-    - path: '_lrs1'               # Logical source register 1 specifier  
-      radix: decimal  
-    - path: '_lrs2'               # Logical source register 2 specifier  
-      radix: decimal  
-    - path: '_lrs3'               # Logical source register 3 specifier (for FP operations)  
-      radix: decimal  
-    - path: '_ldst_val'           # True if there is a valid destination register  
-    - path: '_dst_rtype'          # Destination register type (integer, FP, etc.)  
-    - path: '_lrs1_rtype'         # Source register 1 type  
-    - path: '_lrs2_rtype'         # Source register 2 type  
-    - path: '_frs3_en'            # True if floating-point source register 3 is enabled  
-    # Register and Data Fields  
-    - path: '_imm_packed'         # Densely packed immediate value for decode stage  
-    - path: '_pdst'               # Physical destination register number  
-      radix: decimal  
-    - path: '_prs1'               # Physical source register 1 number  
-      radix: decimal  
-    - path: '_prs2'               # Physical source register 2 number  
-      radix: decimal  
-    - path: '_prs1_busy'          # True if physical source register 1 is busy/not ready  
-    - path: '_prs2_busy'          # True if physical source register 2 is busy/not ready  
-    - path: '_stale_pdst'         # Previous physical destination register for freelist management  
-  
+    # Logical Register Fields
+    - path: '_ldst'             # Logical destination register specifier
+      radix: decimal
+    - path: '_lrs1'             # Logical source register 1 specifier
+      radix: decimal
+    - path: '_lrs2'             # Logical source register 2 specifier
+      radix: decimal
+    - path: '_lrs3'             # Logical source register 3 specifier (for FP operations)
+      radix: decimal
+    - path: '_ldst_val'         # True if there is a valid destination register
+    - path: '_dst_rtype'        # Destination register type (integer, FP, etc.)
+    - path: '_lrs1_rtype'       # Source register 1 type
+    - path: '_lrs2_rtype'       # Source register 2 type
+    - path: '_frs3_en'          # True if floating-point source register 3 is enabled
+    # Register and Data Fields
+    - path: '_imm_packed'       # Densely packed immediate value for decode stage
+    - path: '_pdst'             # Physical destination register number
+      radix: decimal
+    - path: '_prs1'             # Physical source register 1 number
+      radix: decimal
+    - path: '_prs2'             # Physical source register 2 number
+      radix: decimal
+    - path: '_prs1_busy'        # True if physical source register 1 is busy/not ready
+    - path: '_prs2_busy'        # True if physical source register 2 is busy/not ready
+    - path: '_stale_pdst'       # Previous physical destination register for freelist management
+
   uop_xcp: &uop_xcp
-    # Exception and Control Fields  
-    - path: '_exception'          # True if this instruction has an exception  
-    - path: '_exc_cause'          # Exception cause code  
-    - path: '_bypassable'         # True if ALU results can be bypassed (fixed latency operations)
-    - path: '_xcpt_pf_if'         # True if instruction fetch page fault exception occurred  
-    - path: '_xcpt_ae_if'         # True if instruction fetch access exception occurred  
-    - path: '_bp_debug_if'        # True if breakpoint debug exception during instruction fetch  
-    - path: '_bp_xcpt_if'         # True if breakpoint exception during instruction fetch  
-  
+    # Exception and Control Fields
+    - path: '_exception'        # True if this instruction has an exception
+    - path: '_exc_cause'        # Exception cause code
+    - path: '_bypassable'       # True if ALU results can be bypassed (fixed latency operations)
+    - path: '_xcpt_pf_if'       # True if instruction fetch page fault exception occurred
+    - path: '_xcpt_ae_if'       # True if instruction fetch access exception occurred
+    - path: '_bp_debug_if'      # True if breakpoint debug exception during instruction fetch
+    - path: '_bp_xcpt_if'       # True if breakpoint exception during instruction fetch
+
   uop_mem: &uop_mem
-    # Memory Operation Fields  
-    - path: '_mem_cmd'            # Memory command type for loads/stores  
-    - path: '_mem_size'           # Memory operation size  
-    - path: '_mem_signed'         # True if memory operation is signed  
-    - path: '_is_fence'           # True if this is a memory fence instruction  
-    - path: '_is_fencei'          # True if this is an instruction fence  
-    - path: '_is_amo'             # True if this is an atomic memory operation  
-    - path: '_uses_ldq'           # True if instruction uses the load queue  
-    - path: '_uses_stq'           # True if instruction uses the store queue  
-    - path: '_is_sys_pc2epc'      # True for system calls (ECALL) and breakpoints that set EPC to PC  
-    - path: '_is_unique'          # True if instruction must execute alone in pipeline (serializing)  
-    - path: '_flush_on_commit'    # True if instruction needs to flush pipeline behind it on commit  
-  
+    # Memory Operation Fields
+    - path: '_mem_cmd'          # Memory command type for loads/stores
+    - path: '_mem_size'         # Memory operation size
+    - path: '_mem_signed'       # True if memory operation is signed
+    - path: '_is_fence'         # True if this is a memory fence instruction
+    - path: '_is_fencei'        # True if this is an instruction fence
+    - path: '_is_amo'           # True if this is an atomic memory operation
+    - path: '_uses_ldq'         # True if instruction uses the load queue
+    - path: '_uses_stq'         # True if instruction uses the store queue
+    - path: '_is_sys_pc2epc'    # True for system calls (ECALL) and breakpoints that set EPC to PC
+    - path: '_is_unique'        # True if instruction must execute alone in pipeline (serializing)
+    - path: '_flush_on_commit'  # True if instruction needs to flush pipeline behind it on commit
+
   uop_spt: &uop_spt
-    # Extended Fields (Not in base BOOM). Specific to SPT 
+    # Extended Fields (Not in base BOOM). Specific to SPT
     - path: '_taint'
     - path: '_dst_taint'
     - path: '_rs1_taint'
     - path: '_rs2_taint'
+    - path: '_nonspec'
+    - path: '_broadcast_queue'
     - path: '_is_tx'
     - path: '_tx_regs'
       radix: binary
@@ -114,9 +117,9 @@ defaults:
 
 
   uop_fp: &uop_fp
-    # Floating-Point Fields  
-    - path: '_fp_val'             # True if this is a floating-point instruction  
-    - path: '_fp_single'          # True if single-precision floating-point instruction  
+    # Floating-Point Fields
+    - path: '_fp_val'           # True if this is a floating-point instruction
+    - path: '_fp_single'        # True if single-precision floating-point instruction
 
   uop_full: &uop_full
     - children: *uop_base
@@ -125,6 +128,7 @@ defaults:
     - children: *uop_xcp
     - children: *uop_mem
     - children: *uop_fp
+    - children: *uop_spt
 
   # Valid uops
   valid_uop_full: &valid_uop_full
@@ -133,7 +137,7 @@ defaults:
       children: *uop_full
 
   # FuncUnitReq
-  FuncUnitReq_uop_full: &FuncUnitReq_uop_full 
+  FuncUnitReq_uop_full: &FuncUnitReq_uop_full
     - path: '_rs1_data'
     - path: '_rs2_data'
     - path: '_rs3_data'
@@ -153,13 +157,13 @@ defaults:
     - path: '_sfence_bits_addr'
     - base: '_uop'
       children: *uop_full
-      
+
   # Templates for slots
   slot_children: &slot_children
     - path: '.io_valid'
     - path: '.io_will_be_valid'
     - path: '.io_request'
-    # - path: '.io_request_hp'    # Not used in age-ordering issue unit
+    # - path: '.io_request_hp'  # Not used in age-ordering issue unit
     - path: '.io_grant'
     - path: '.io_kill'
     - path: '.io_clear'
@@ -178,7 +182,7 @@ defaults:
 
 # Groups
 groups:
-    # General control signals 
+  # General control signals
   - name: 'Control'                     # Name that will show on DVE GUI
     base: $core                         # Full signal path before the signal name at this level (no trailing . or _)
     collapse: false                     # Collapse the group after loading the script
@@ -188,9 +192,9 @@ groups:
       - path: .csr_io_interrupt
       - path: .csr_io_interrupt_cause
 
-    # Decode stage
-  - name: 'Decode'                      
-    base: $core                         
+  # Decode stage
+  - name: 'Decode'
+    base: $core
     collapse: true
     children: []                        # [] for empty in this level
     subgroups:                          # Subgroups are defined here
@@ -200,7 +204,7 @@ groups:
         children:
           - base: '.io_enq_uop'
             children: *uop_full           # list of signals can be reused and added as a group with the keyword 'children' to avoid repetition
-  
+
   # Rename stage
   - name: 'Rename'
     base: '$core'
@@ -216,7 +220,7 @@ groups:
             children:
               - path: '.io_ren2_mask_$w'
               - path: '.io_ren_stalls_$w'
-              - base: '.io_ren2_uops_$w' 
+              - base: '.io_ren2_uops_$w'
                 children: *uop_full
       - name: 'FP Rename'
         base: '.fp_rename_stage'
@@ -227,9 +231,9 @@ groups:
             iterators: {w: $width}
             children:
               - path: '.io_ren_stalls_$w'
-              - base: '.io_ren2_uops_$w' 
+              - base: '.io_ren2_uops_$w'
                 children: *uop_full
-                
+
   # Dispatch stage
   - name: 'Dispatcher'
     base: '$core'
@@ -244,7 +248,7 @@ groups:
           - path: '.dis_hazards_$w'
           - path: '.dispatcher.io_dis_uops_$i_$w_ready'
           - path: '.dispatcher.io_dis_uops_$i_$w_valid'
-          - base: '.dispatcher.io_dis_uops_$i_$w_bits' 
+          - base: '.dispatcher.io_dis_uops_$i_$w_bits'
             children: *uop_full
 
   # ReOrder Buffer
@@ -262,15 +266,15 @@ groups:
     subgroups:
       - name: 'Entries'
         base: ''
-        subgroups:  
+        subgroups:
           - name: 'idx ${idx}'
             base: ''
             iterators:
               e: 32       # entries of ROB
               b: 2        # banks of ROB
-            expr:                       # Expresions can be constructed with iterators for custom naming
-              idx: '(e << 1) + b'                 # entry number since they are alternated between banks
-              bd: ' b if b != 0 else "" '       # Bank display (since it is '' if b=0) 
+            expr:         # Expresions can be constructed with iterators for custom naming
+              idx: '(e << 1) + b'           # entry number since they are alternated between banks
+              bd: ' b if b != 0 else "" '   # Bank display (since it is '' if b=0)
             children:
               - path: '.rob_val_${bd}_${e}'
               - path: '.rob_bsy_${bd}_${e}'
@@ -281,14 +285,14 @@ groups:
                 children: *uop_full
       - name: 'Commit lane $w'
         base: '.io_commit'
-        iterators: { w: $width }
+        iterators: {w: $width}
         children:
           - path: '_valids_$w'
           - base: '_uops_$w'
             children: *uop_full
       - name: 'Enqueue lane $w'
         base: '.io_commit'
-        iterators: { w: $width }
+        iterators: {w: $width}
         children:
           - path: '_valids_$w'
           - base: '_uops_$w'
@@ -336,7 +340,7 @@ groups:
                 iterators: {s: 20}
                 children: *slot_children
                 subgroups: *slot_subgroups
-    
+
       - name: 'Memory IU'
         base: '.mem_issue_unit'
         subgroups:
@@ -353,7 +357,7 @@ groups:
                 base: '.slots_$s'
                 iterators: {s: 12}
                 children: *slot_children
-                subgroups: *slot_subgroups      
+                subgroups: *slot_subgroups
 
       - name: 'FP IU'
         base: '.fp_pipeline.fp_issue_unit'
@@ -389,9 +393,9 @@ groups:
           - name: 'rrd_$w'
             base: '.io_exe_reqs_$w' #'rrd_decode_unit$s' Not needed, read from top .iregister_read
             iterators: {w: 3}
-            expr:                       
+            expr:
               s: ' w if w != 0 else "" '
-            children: 
+            children:
               - path: '_valid'
               - base: '_bits'
                 children: *FuncUnitReq_uop_full
@@ -399,8 +403,8 @@ groups:
       - name: 'FP RF'
         base: '.fp_pipeline.fregfile'
         children:
-          - path: '.regfile' 
-      
+          - path: '.regfile'
+
       - name: 'FP Register Read'
         base: '.fp_pipeline.fregister_read'
         children: []
@@ -408,7 +412,7 @@ groups:
           - name: 'rrd_$w'
             base: '.io_exe_reqs_$w'
             iterators: {w: 1}
-            expr:                       
+            expr:
               s: ' w if w != 0 else "" '
             children:
               - path: '_valid'
@@ -422,7 +426,7 @@ groups:
   # Memory
   - name: 'Memory'
     base: '$tile.lsu'   # .exe_tlb_uop_0_nonspec
-    children: 
+    children:
       - path: '.exe_tlb_uop_0_nonspec '
       - path: '.exe_tlb_uop_0_rs1_taint'
       - path: '.exe_tlb_uop_0_rob_idx'
@@ -432,24 +436,24 @@ groups:
         subgroups:
           - name: 'req'
             base: 'io_core_exe_0_req'
-            children: 
+            children:
               - path: '_valid'
               - base: '_bits'
                 children: *FuncUnitResp_uop_full
           - name: 'iresp'
             base: '.io_core_exe_0_iresp'
-            children:  
+            children:
               - path: '_valid'
               # - path: '_ready'
               - base: '_bits'
                 children: *FuncUnitResp_uop_full
           - name: 'fresp'
             base: '.io_core_exe_0_fresp'
-            children:  
+            children:
               - path: '_valid'
               # - path: '_ready'
               - base: '_bits'
-                children: *FuncUnitResp_uop_full          
+                children: *FuncUnitResp_uop_full
 
       - name: 'LDQ'
         base: ''
